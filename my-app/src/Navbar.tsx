@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import './Navbar.css'
 import logo from './assets/health.symbol-removebg-preview.png'
 function Navbar() {
