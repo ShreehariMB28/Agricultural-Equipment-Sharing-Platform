@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Cart{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1>🛒 Your Cart</h1>
+        <p>Review your selected equipment rentals</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        {% if items %}
+        <div class="cart-layout">
+            <div class="cart-items">
+                {% for item in items %}
+                <div class="cart-item-card">
+                    {% if item.image %}
+                    <img src="{{ url_for('static', filename='uploads/' + item.image) }}" alt="{{ item.name }}"
+                        class="cart-item-img">
+                    {% else %}
+                    <div class="cart-item-icon">🚜</div>
+                    {% endif %}
+                    <div class="cart-item-details">
+                        <h3>{{ item.name }}</h3>
+                        <p class="cart-item-desc">{{ item.description }}</p>
+                        <span class="cart-item-price">₹{{ "%.0f"|format(item.price) }}/day</span>
+                    </div>
+                    <div class="cart-item-controls">
+                        <form method="POST" action="{{ url_for('update_cart', item_id=item.id) }}"
+                            class="duration-form">
+                            <label>Days:</label>
+                            <select name="duration" onchange="this.form.submit()" class="duration-select">
+                                {% for d in [1, 3, 7, 14, 30] %}
+                                <option value="{{ d }}" {% if item.duration==d %}selected{% endif %}>{{ d }}</option>
+                                {% endfor %}
+                            </select>
+                        </form>
+                        <span class="cart-item-subtotal">₹{{ "%.0f"|format(item.subtotal) }}</span>
+                        <form method="POST" action="{{ url_for('remove_from_cart', item_id=item.id) }}">
+                            <button type="submit" class="btn btn-danger btn-sm" title="Remove">✕</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="cart-summary">
+                <h3>Order Summary</h3>
+                <div class="summary-rows">
+                    {% for item in items %}
+                    <div class="summary-row">
+                        <span>{{ item.name }} × {{ item.duration }}d</span>
+                        <span>₹{{ "%.0f"|format(item.subtotal) }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="summary-total">
+                    <span>Total</span>
+                    <span>₹{{ "%.0f"|format(total) }}</span>
+                </div>
+                <form method="POST" action="{{ url_for('checkout') }}">
+                    <button type="submit" class="btn btn-primary btn-block btn-lg">
+                        ✅ Checkout — ₹{{ "%.0f"|format(total) }}
+                    </button>
+                </form>
+                <a href="{{ url_for('equipment') }}" class="btn btn-outline btn-block">← Continue Browsing</a>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">🛒</div>
+            <h3>Your cart is empty</h3>
+            <p>Browse equipment and add items to your cart to get started.</p>
+            <a href="{{ url_for('equipment') }}" class="btn btn-primary">Browse Equipment</a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

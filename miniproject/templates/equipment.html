@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Equipment{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1>🚜 Agricultural Equipment</h1>
+        <p>Browse, search, and rent the equipment you need</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <!-- Search & Filter Bar -->
+        <div class="search-filter-bar">
+            <form method="GET" action="{{ url_for('equipment') }}" class="search-form" id="searchForm">
+                <div class="search-input-group">
+                    <input type="text" name="search" placeholder="Search equipment..." value="{{ search }}"
+                        class="search-input" id="searchInput">
+                    <button type="submit" class="btn btn-primary btn-search">🔍 Search</button>
+                </div>
+                <div class="filter-group">
+                    <input type="number" name="min_price" placeholder="Min ₹" value="{{ min_price }}"
+                        class="filter-input" min="0" step="50">
+                    <span class="filter-sep">–</span>
+                    <input type="number" name="max_price" placeholder="Max ₹" value="{{ max_price }}"
+                        class="filter-input" min="0" step="50">
+                    <button type="submit" class="btn btn-outline btn-sm">Filter</button>
+                    {% if search or min_price or max_price %}
+                    <a href="{{ url_for('equipment') }}" class="btn btn-ghost btn-sm">Clear</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+
+        <!-- Add Equipment Form (logged in only) -->
+        {% if current_user %}
+        <div class="add-equipment-section">
+            <button class="btn btn-primary" id="toggleAddForm" onclick="toggleAddForm()">
+                ➕ Add Your Equipment
+            </button>
+            <div class="add-equipment-form" id="addEquipmentForm" style="display:none;">
+                <h3>List New Equipment</h3>
+                <form method="POST" action="{{ url_for('add_equipment') }}" id="equipmentForm"
+                    enctype="multipart/form-data">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="name">Equipment Name</label>
+                            <input type="text" id="name" name="name" placeholder="e.g. John Deere Tractor" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="price">Price per Day (₹)</label>
+                            <input type="number" id="price" name="price" placeholder="e.g. 500" required min="1"
+                                step="10">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description</label>
+                        <textarea id="description" name="description" rows="3"
+                            placeholder="Describe your equipment, condition, specifications..." required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="image">Equipment Image (optional)</label>
+                        <input type="file" id="image" name="image" accept="image/png,image/jpeg,image/gif,image/webp"
+                            class="file-input">
+                        <small class="form-hint">Max 5 MB — PNG, JPG, GIF, or WebP</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Add Equipment</button>
+                        <button type="button" class="btn btn-ghost" onclick="toggleAddForm()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Equipment Grid -->
+        {% if equipment %}
+        <div class="equipment-grid">
+            {% for item in equipment %}
+            <div class="equipment-card">
+                <div class="card-image">
+                    {% if item.image %}
+                    <img src="{{ url_for('static', filename='uploads/' + item.image) }}" alt="{{ item.name }}">
+                    {% else %}
+                    <div class="card-image-placeholder">🚜</div>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <h3 class="card-title">{{ item.name }}</h3>
+                    <p class="card-description">{{ item.description }}</p>
+                    <div class="card-meta">
+                        <span class="card-owner">👤 {{ item.owner_name }}</span>
+                    </div>
+                    <div class="card-footer">
+                        <span class="card-price">₹{{ "%.0f"|format(item.price) }}<small>/day</small></span>
+                        {% if current_user %}
+                        <form method="POST" action="{{ url_for('add_to_cart', item_id=item.id) }}"
+                            class="card-cart-form">
+                            <select name="duration" class="duration-select" title="Rental duration">
+                                <option value="1">1 day</option>
+                                <option value="3">3 days</option>
+                                <option value="7" selected>7 days</option>
+                                <option value="14">14 days</option>
+                                <option value="30">30 days</option>
+                            </select>
+                            <button type="submit" class="btn btn-accent btn-sm">Add to Cart</button>
+                        </form>
+                        {% else %}
+                        <a href="{{ url_for('login') }}" class="btn btn-outline btn-sm">Login to Rent</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">🌿</div>
+            <h3>No equipment found</h3>
+            <p>{% if search or min_price or max_price %}Try adjusting your search or filters.{% else %}Be the first to
+                list equipment on FarmShare!{% endif %}</p>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

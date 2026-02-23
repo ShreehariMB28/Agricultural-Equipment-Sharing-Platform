@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1>👤 My Profile</h1>
+        <p>Manage your account and listed equipment</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <!-- Profile Info -->
+        <div class="profile-card">
+            <div class="profile-avatar">{{ user.username[0]|upper }}</div>
+            <div class="profile-info">
+                <h2>{{ user.username }}</h2>
+                <p class="profile-email">📧 {{ user.email }}</p>
+                <span class="profile-badge">Verified Farmer</span>
+            </div>
+        </div>
+
+        <!-- My Equipment -->
+        <div class="profile-section">
+            <h2>My Listed Equipment <span class="count-badge">{{ equipment|length }}</span></h2>
+            {% if equipment %}
+            <div class="equipment-grid">
+                {% for item in equipment %}
+                <div class="equipment-card">
+                    <div class="card-image">
+                        {% if item.image %}
+                        <img src="{{ url_for('static', filename='uploads/' + item.image) }}" alt="{{ item.name }}">
+                        {% else %}
+                        <div class="card-image-placeholder">🚜</div>
+                        {% endif %}
+                    </div>
+                    <div class="card-body">
+                        <h3 class="card-title">{{ item.name }}</h3>
+                        <p class="card-description">{{ item.description }}</p>
+                        <div class="card-footer">
+                            <span class="card-price">₹{{ "%.0f"|format(item.price) }}<small>/day</small></span>
+                            <form method="POST" action="{{ url_for('delete_equipment', item_id=item.id) }}">
+                                <button type="submit" class="btn btn-danger btn-sm"
+                                    onclick="return confirm('Remove this equipment?')">🗑 Remove</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">📋</div>
+                <h3>No equipment listed yet</h3>
+                <p>Start sharing your agricultural equipment with the community!</p>
+                <a href="{{ url_for('equipment') }}" class="btn btn-primary">List Equipment</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}
