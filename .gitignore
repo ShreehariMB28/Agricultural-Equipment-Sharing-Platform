@@ -1,0 +1,14 @@
+# Server
+server/node_modules
+server/.env
+
+# Frontend
+my-app/node_modules
+my-app/dist
+
+# Misc
+node_modules
+*.log
+.DS_Store
+build_error.log
+build_log.txt
