@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { GlobalStyles, C } from './styles';
+import { GlobalStyles, C, API_URL } from './styles';
 import { Toast } from './components/Utilities';
 import Navbar from './components/Navbar';
 import HomePage from './components/HomePage';
@@ -22,6 +22,23 @@ export default function App() {
     const [bookings, setBookings] = useState(initBookings);
     const [equipmentData, setEquipmentData] = useState(EQUIPMENT);
     const [toasts, setToasts] = useState([]);
+
+    useEffect(() => {
+        const fetchEquipment = async () => {
+            try {
+                const res = await fetch(`${API_URL}/equipment`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.length > 0) {
+                        setEquipmentData(data);
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch equipment data from backend:', err);
+            }
+        };
+        fetchEquipment();
+    }, []);
 
     const addToast = (msg, type = 'success') => {
         const id = Date.now();

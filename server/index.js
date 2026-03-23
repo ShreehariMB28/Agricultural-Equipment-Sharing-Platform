@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const mysql = require('mysql2/promise');
 const sequelize = require('./config/database');
 const authRoutes = require('./routes/auth');
+const equipmentRoutes = require('./routes/equipment');
 
 dotenv.config();
 
@@ -15,6 +16,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api', authRoutes);
+app.use('/api/equipment', equipmentRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
