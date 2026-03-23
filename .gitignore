@@ -1,6 +1,7 @@
 # Server
 server/node_modules
 server/.env
+server/uploads/
 
 # Frontend
 my-app/node_modules

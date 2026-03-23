@@ -18,7 +18,13 @@ const EQUIP_TYPE_IMAGES = {
     'Rotavator': `${BASE}/rotavator.jpg`,
     'Seed Drill': `${BASE}/thresher.jpg`,
 };
-export const getEquipImage = (type, name) => {
+export const getEquipImage = (type, name, photos) => {
+    // Check for uploaded server photos first
+    if (photos && Array.isArray(photos) && photos.length > 0) {
+        const photo = photos[0];
+        if (photo.startsWith('/uploads/')) return `http://localhost:5000${photo}`;
+        return photo;
+    }
     if (name && EQUIP_NAME_IMAGES[name]) return EQUIP_NAME_IMAGES[name];
     return EQUIP_TYPE_IMAGES[type] || `${BASE}/mahindra-tractor.webp`;
 };

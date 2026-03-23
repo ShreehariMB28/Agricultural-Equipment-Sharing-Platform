@@ -1,9 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 const mysql = require('mysql2/promise');
 const sequelize = require('./config/database');
 const authRoutes = require('./routes/auth');
+const equipmentRoutes = require('./routes/equipment');
 
 dotenv.config();
 
@@ -12,9 +14,11 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/api', authRoutes);
+app.use('/api', equipmentRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

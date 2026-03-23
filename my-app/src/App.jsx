@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { GlobalStyles, C } from './styles';
+import { GlobalStyles, C, API_URL } from './styles';
 import { Toast } from './components/Utilities';
 import Navbar from './components/Navbar';
 import HomePage from './components/HomePage';
@@ -11,6 +11,7 @@ import InsurancePage from './components/InsurancePage';
 import FarmerDashboard from './components/FarmerDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import { EQUIPMENT, initBookings } from './data';
+
 
 export default function App() {
     const [page, setPage] = useState('Home');
@@ -31,6 +32,20 @@ export default function App() {
     const removeToast = (id) => { setToasts(t => t.map(x => x.id === id ? { ...x, removing: true } : x)); setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 350); };
 
     useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [page]);
+
+    // Fetch equipment from API on mount
+    useEffect(() => {
+        fetch(`${API_URL}/equipment`)
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data) && data.length > 0) {
+                    setEquipmentData(data);
+                }
+            })
+            .catch(() => {
+                console.log('API not available, using local equipment data');
+            });
+    }, []);
 
     // Access control
     useEffect(() => {

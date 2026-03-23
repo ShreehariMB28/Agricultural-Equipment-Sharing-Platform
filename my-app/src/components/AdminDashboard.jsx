@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { C, inputS, labelS } from '../styles';
+import { C, inputS, labelS, API_URL } from '../styles';
 import { StatusBadge, Badge, TrustScoreBadge } from './Utilities';
 import { getEquipImage, ADMIN_STATUSES, SAMPLE_USERS, SAMPLE_CLAIMS } from '../data';
+
 
 const AdminDashboard = ({ bookings, setBookings, addToast, equipmentData, setEquipmentData, user }) => {
     const [tab, setTab] = useState('users');
@@ -12,10 +13,28 @@ const AdminDashboard = ({ bookings, setBookings, addToast, equipmentData, setEqu
     const [users, setUsers] = useState(SAMPLE_USERS);
     const [expandedUser, setExpandedUser] = useState(null);
 
-    const changeAdminStatus = (eqId) => {
+    const changeAdminStatus = async (eqId) => {
         if (!newStatus) return;
-        setEquipmentData(equipmentData.map(e => e.id === eqId ? { ...e, adminStatus: newStatus, adminNote: statusNote, available: ['Available', 'Approved & Ready'].includes(newStatus) } : e));
-        addToast(`Status updated to "${newStatus}"`, 'success');
+        const token = localStorage.getItem('token');
+        try {
+            const res = await fetch(`${API_URL}/equipment/${eqId}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                body: JSON.stringify({ adminStatus: newStatus, adminNote: statusNote }),
+            });
+            if (res.ok) {
+                const updated = await res.json();
+                setEquipmentData(equipmentData.map(e => e.id === eqId ? updated : e));
+                addToast(`Status updated to "${newStatus}"`, 'success');
+            } else {
+                // Fallback to local update
+                setEquipmentData(equipmentData.map(e => e.id === eqId ? { ...e, adminStatus: newStatus, adminNote: statusNote, available: ['Available', 'Approved & Ready'].includes(newStatus) } : e));
+                addToast(`Status updated locally (server error)`, 'info');
+            }
+        } catch {
+            setEquipmentData(equipmentData.map(e => e.id === eqId ? { ...e, adminStatus: newStatus, adminNote: statusNote, available: ['Available', 'Approved & Ready'].includes(newStatus) } : e));
+            addToast(`Status updated locally (server unavailable)`, 'info');
+        }
         setEditingStatus(null); setStatusNote(''); setNewStatus('');
     };
     const toggleSuspend = (userId) => {
@@ -106,7 +125,7 @@ const AdminDashboard = ({ bookings, setBookings, addToast, equipmentData, setEqu
                         {equipmentData.map(eq => (
                             <div key={eq.id} style={{ border: `1.5px solid ${C.lightGray}`, borderRadius: 12, padding: '16px 20px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-                                    <img src={getEquipImage(eq.type, eq.name)} alt={eq.name} style={{ width: 64, height: 44, objectFit: 'cover', borderRadius: 8 }} />
+                                    <img src={getEquipImage(eq.type, eq.name, eq.photos)} alt={eq.name} style={{ width: 64, height: 44, objectFit: 'cover', borderRadius: 8 }} />
                                     <div style={{ flex: 1, minWidth: 140 }}>
                                         <h4 style={{ fontSize: 14, color: C.greenDark }}>{eq.name}</h4>
                                         <p style={{ fontSize: 12, color: C.gray }}>{eq.type} {'\u00B7'} {eq.location} {'\u00B7'} {'\u20B9'}{eq.pricePerDay || eq.price}/day {'\u00B7'} {eq.condition || 'Good'}</p>

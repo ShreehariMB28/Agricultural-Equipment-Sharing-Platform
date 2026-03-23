@@ -1,20 +1,57 @@
 import { useState } from 'react';
-import { C, inputS, labelS } from '../styles';
+import { C, inputS, labelS, API_URL } from '../styles';
 import { StatusBadge, TrustScoreBadge } from './Utilities';
 import { getEquipImage, TYPES, LOCATIONS, ADMIN_STATUSES, CONDITIONS, FUEL_TYPES, ATTACHMENTS } from '../data';
+
 
 const FarmerDashboard = ({ bookings, setBookings, addToast, equipmentData, setEquipmentData, user, setPage }) => {
     const [tab, setTab] = useState('bookings');
     const [showAddForm, setShowAddForm] = useState(false);
     const [newEquip, setNewEquip] = useState({ name: '', type: 'Tractor', brand: '', yearOfMfg: 2022, condition: 'Good', engineHours: 0, fuelType: 'Diesel', hp: 0, pricePerDay: '', pricePerHour: '', location: 'Pune', deliveryAvailable: true, attachments: [] });
+    const [photoFiles, setPhotoFiles] = useState([]);
     const [showClaimForm, setShowClaimForm] = useState(false);
     const [claimForm, setClaimForm] = useState({ equipment: '', description: '', photos: '' });
 
     const cancelBooking = (id) => { setBookings(bookings.map(b => b.id === id ? { ...b, status: 'Cancelled' } : b)); addToast('Booking cancelled.', 'info'); };
-    const addEquipment = () => {
+    const addEquipment = async () => {
         if (!newEquip.name || !newEquip.pricePerDay) { addToast('Please fill equipment name and price', 'error'); return; }
-        const eq = { id: Date.now(), name: newEquip.name, type: newEquip.type, brand: newEquip.brand, yearOfMfg: newEquip.yearOfMfg, condition: newEquip.condition, engineHours: newEquip.engineHours, fuelType: newEquip.fuelType, hp: Number(newEquip.hp), attachments: newEquip.attachments, pricePerHour: Number(newEquip.pricePerHour), pricePerDay: Number(newEquip.pricePerDay), location: newEquip.location, village: '', taluka: '', district: newEquip.location, state: 'Maharashtra', deliveryAvailable: newEquip.deliveryAvailable, rating: 4.0, available: true, icon: '\u{1F69C}', totalRentals: 0, adminStatus: 'Inspection Pending', adminNote: 'Awaiting admin approval', bookedFrom: '', bookedTo: '', photos: [] };
-        setEquipmentData([...equipmentData, eq]); setShowAddForm(false); addToast(`${eq.name} listed! Awaiting admin approval.`, 'success');
+        const token = localStorage.getItem('token');
+        try {
+            const formData = new FormData();
+            formData.append('name', newEquip.name);
+            formData.append('type', newEquip.type);
+            formData.append('brand', newEquip.brand);
+            formData.append('yearOfMfg', newEquip.yearOfMfg);
+            formData.append('condition', newEquip.condition);
+            formData.append('engineHours', newEquip.engineHours);
+            formData.append('fuelType', newEquip.fuelType);
+            formData.append('hp', Number(newEquip.hp));
+            formData.append('attachments', JSON.stringify(newEquip.attachments));
+            formData.append('pricePerHour', Number(newEquip.pricePerHour) || 0);
+            formData.append('pricePerDay', Number(newEquip.pricePerDay));
+            formData.append('location', newEquip.location);
+            formData.append('district', newEquip.location);
+            formData.append('state', 'Maharashtra');
+            formData.append('deliveryAvailable', newEquip.deliveryAvailable);
+            // Append photo files
+            for (const file of photoFiles) {
+                formData.append('photos', file);
+            }
+            const res = await fetch(`${API_URL}/equipment`, {
+                method: 'POST',
+                headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                body: formData,
+            });
+            if (!res.ok) { const err = await res.json(); addToast(err.error || 'Failed to add equipment', 'error'); return; }
+            const eq = await res.json();
+            setEquipmentData([...equipmentData, eq]);
+            setShowAddForm(false);
+            setPhotoFiles([]);
+            addToast(`${eq.name} listed! Awaiting admin approval.`, 'success');
+        } catch {
+            const eq = { id: Date.now(), name: newEquip.name, type: newEquip.type, brand: newEquip.brand, yearOfMfg: newEquip.yearOfMfg, condition: newEquip.condition, engineHours: newEquip.engineHours, fuelType: newEquip.fuelType, hp: Number(newEquip.hp), attachments: newEquip.attachments, pricePerHour: Number(newEquip.pricePerHour), pricePerDay: Number(newEquip.pricePerDay), location: newEquip.location, village: '', taluka: '', district: newEquip.location, state: 'Maharashtra', deliveryAvailable: newEquip.deliveryAvailable, rating: 4.0, available: false, adminStatus: 'Inspection Pending', adminNote: 'Awaiting admin approval', photos: [] };
+            setEquipmentData([...equipmentData, eq]); setShowAddForm(false); setPhotoFiles([]); addToast(`${eq.name} listed locally (server unavailable).`, 'info');
+        }
     };
     const submitClaim = () => {
         if (!claimForm.equipment || !claimForm.description) { addToast('Please fill all claim fields', 'error'); return; }
@@ -106,7 +143,7 @@ const FarmerDashboard = ({ bookings, setBookings, addToast, equipmentData, setEq
                                     </label>
                                 ))}</div>
                             </div>
-                            <div style={{ gridColumn: '1/-1' }}><label style={labelS}>Photos (min 3 — front, side, engine)</label><input type="file" multiple accept="image/*" style={inputS} /><p style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>Upload at least 3 photos. All media will be timestamped.</p></div>
+                            <div style={{ gridColumn: '1/-1' }}><label style={labelS}>Photos (min 3 — front, side, engine)</label><input type="file" multiple accept="image/*" onChange={e => setPhotoFiles(Array.from(e.target.files))} style={inputS} /><p style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>Upload at least 3 photos. All media will be timestamped.{photoFiles.length > 0 && ` (${photoFiles.length} selected)`}</p></div>
                             <div style={{ gridColumn: '1/-1' }}><label style={labelS}>Pre-rental Video</label><input type="file" accept="video/*" style={inputS} /><p style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>Upload a short video showing equipment condition (stored as evidence).</p></div>
                             <div style={{ gridColumn: '1/-1', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                                 <button onClick={() => setShowAddForm(false)} style={{ background: C.lightGray, color: C.gray, border: 'none', padding: '9px 20px', borderRadius: 10, cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
@@ -117,7 +154,7 @@ const FarmerDashboard = ({ bookings, setBookings, addToast, equipmentData, setEq
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                         {equipmentData.map(eq => (
                             <div key={eq.id} style={{ border: `1.5px solid ${C.lightGray}`, borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                                <img src={getEquipImage(eq.type, eq.name)} alt={eq.name} style={{ width: 80, height: 56, objectFit: 'cover', borderRadius: 8 }} />
+                                <img src={getEquipImage(eq.type, eq.name, eq.photos)} alt={eq.name} style={{ width: 80, height: 56, objectFit: 'cover', borderRadius: 8 }} />
                                 <div style={{ flex: 1, minWidth: 150 }}>
                                     <h4 style={{ fontSize: 15, color: C.greenDark }}>{eq.name}</h4>
                                     <p style={{ fontSize: 12, color: C.gray }}>{eq.type} {'\u00B7'} {'\u20B9'}{eq.pricePerDay || eq.price}/day {'\u00B7'} {eq.location} {'\u00B7'} {eq.condition}</p>

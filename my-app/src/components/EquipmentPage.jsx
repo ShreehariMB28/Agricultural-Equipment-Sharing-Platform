@@ -9,7 +9,7 @@ const EquipmentModal = ({ eq, onClose, onBook, user }) => {
     return (
         <div onClick={onClose} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,.55)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div onClick={e => e.stopPropagation()} style={{ background: C.white, borderRadius: 20, maxWidth: 640, width: '100%', maxHeight: '90vh', overflow: 'auto', animation: 'modalIn .3s ease', boxShadow: '0 16px 48px rgba(0,0,0,.25)' }}>
-                <img src={getEquipImage(eq.type, eq.name)} alt={eq.name} style={{ width: '100%', height: 240, objectFit: 'cover', borderRadius: '20px 20px 0 0' }} />
+                <img src={getEquipImage(eq.type, eq.name, eq.photos)} alt={eq.name} style={{ width: '100%', height: 240, objectFit: 'cover', borderRadius: '20px 20px 0 0' }} />
                 <div style={{ padding: '24px 28px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                         <div>
@@ -59,6 +59,8 @@ const EquipmentPage = ({ setPage, setSelectedEquip, addToast, equipmentData, use
     const [priceF, setPriceF] = useState(5000);
     const [modalEq, setModalEq] = useState(null);
     const filtered = equipmentData.filter(e => {
+        // Only show admin-approved equipment on public browse page
+        if (!['Available', 'Approved & Ready'].includes(e.adminStatus)) return false;
         if (search && !e.name.toLowerCase().includes(search.toLowerCase())) return false;
         if (typeF !== 'All Types' && e.type !== typeF) return false;
         if (locF !== 'All Locations' && e.location !== locF) return false;
@@ -87,7 +89,7 @@ const EquipmentPage = ({ setPage, setSelectedEquip, addToast, equipmentData, use
                     const age = new Date().getFullYear() - (eq.yearOfMfg || 2020);
                     return (
                         <div key={eq.id} className="card-hover" onClick={() => setModalEq(eq)} style={{ background: C.white, borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 14px rgba(0,0,0,.06)', transition: 'all .3s', animation: `fadeIn .4s ease ${i * .07}s both`, cursor: 'pointer' }}>
-                            <img src={getEquipImage(eq.type, eq.name)} alt={eq.name} style={{ width: '100%', height: 180, objectFit: 'cover' }} />
+                            <img src={getEquipImage(eq.type, eq.name, eq.photos)} alt={eq.name} style={{ width: '100%', height: 180, objectFit: 'cover' }} />
                             <div style={{ padding: '16px 20px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                                     <h4 style={{ color: C.greenDark, fontSize: 15 }}>{eq.name}</h4>
