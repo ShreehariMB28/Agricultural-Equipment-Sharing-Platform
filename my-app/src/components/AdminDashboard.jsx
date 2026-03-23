@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { C, inputS, labelS } from '../styles';
+import { C, inputS, labelS, API_URL } from '../styles';
 import { StatusBadge, Badge, TrustScoreBadge } from './Utilities';
 import { getEquipImage, ADMIN_STATUSES, SAMPLE_USERS, SAMPLE_CLAIMS } from '../data';
 
@@ -12,11 +12,30 @@ const AdminDashboard = ({ bookings, setBookings, addToast, equipmentData, setEqu
     const [users, setUsers] = useState(SAMPLE_USERS);
     const [expandedUser, setExpandedUser] = useState(null);
 
-    const changeAdminStatus = (eqId) => {
+    const changeAdminStatus = async (eqId) => {
         if (!newStatus) return;
-        setEquipmentData(equipmentData.map(e => e.id === eqId ? { ...e, adminStatus: newStatus, adminNote: statusNote, available: ['Available', 'Approved & Ready'].includes(newStatus) } : e));
-        addToast(`Status updated to "${newStatus}"`, 'success');
-        setEditingStatus(null); setStatusNote(''); setNewStatus('');
+        
+        const isAvailable = ['Available', 'Approved & Ready'].includes(newStatus);
+        const updateData = { adminStatus: newStatus, adminNote: statusNote, available: isAvailable };
+        
+        try {
+            const res = await fetch(`${API_URL}/equipment/${eqId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updateData)
+            });
+            
+            if (res.ok) {
+                setEquipmentData(equipmentData.map(e => e.id === eqId ? { ...e, ...updateData } : e));
+                addToast(`Status updated to "${newStatus}"`, 'success');
+                setEditingStatus(null); setStatusNote(''); setNewStatus('');
+            } else {
+                addToast('Failed to update equipment status in database', 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            addToast('Server error during status update', 'error');
+        }
     };
     const toggleSuspend = (userId) => {
         setUsers(users.map(u => u.id === userId ? { ...u, status: u.status === 'Suspended' ? 'Active' : 'Suspended' } : u));

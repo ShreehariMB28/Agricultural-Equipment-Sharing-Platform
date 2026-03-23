@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { C, inputS, labelS } from '../styles';
+import { C, inputS, labelS, API_URL } from '../styles';
 import { StatusBadge, TrustScoreBadge } from './Utilities';
 import { getEquipImage, TYPES, LOCATIONS, ADMIN_STATUSES, CONDITIONS, FUEL_TYPES, ATTACHMENTS } from '../data';
 
@@ -11,10 +11,40 @@ const FarmerDashboard = ({ bookings, setBookings, addToast, equipmentData, setEq
     const [claimForm, setClaimForm] = useState({ equipment: '', description: '', photos: '' });
 
     const cancelBooking = (id) => { setBookings(bookings.map(b => b.id === id ? { ...b, status: 'Cancelled' } : b)); addToast('Booking cancelled.', 'info'); };
-    const addEquipment = () => {
+    const addEquipment = async () => {
         if (!newEquip.name || !newEquip.pricePerDay) { addToast('Please fill equipment name and price', 'error'); return; }
-        const eq = { id: Date.now(), name: newEquip.name, type: newEquip.type, brand: newEquip.brand, yearOfMfg: newEquip.yearOfMfg, condition: newEquip.condition, engineHours: newEquip.engineHours, fuelType: newEquip.fuelType, hp: Number(newEquip.hp), attachments: newEquip.attachments, pricePerHour: Number(newEquip.pricePerHour), pricePerDay: Number(newEquip.pricePerDay), location: newEquip.location, village: '', taluka: '', district: newEquip.location, state: 'Maharashtra', deliveryAvailable: newEquip.deliveryAvailable, rating: 4.0, available: true, icon: '\u{1F69C}', totalRentals: 0, adminStatus: 'Inspection Pending', adminNote: 'Awaiting admin approval', bookedFrom: '', bookedTo: '', photos: [] };
-        setEquipmentData([...equipmentData, eq]); setShowAddForm(false); addToast(`${eq.name} listed! Awaiting admin approval.`, 'success');
+        
+        const eqData = { 
+            name: newEquip.name, type: newEquip.type, brand: newEquip.brand, yearOfMfg: newEquip.yearOfMfg, 
+            condition: newEquip.condition, engineHours: newEquip.engineHours, fuelType: newEquip.fuelType, 
+            hp: Number(newEquip.hp) || 0, attachments: newEquip.attachments, pricePerHour: Number(newEquip.pricePerHour) || 0, 
+            pricePerDay: Number(newEquip.pricePerDay) || 0, location: newEquip.location, village: '', taluka: '', 
+            district: newEquip.location, state: 'Maharashtra', deliveryAvailable: newEquip.deliveryAvailable, 
+            rating: 4.0, available: true, icon: '\u{1F69C}', totalRentals: 0, 
+            adminStatus: 'Inspection Pending', adminNote: 'Awaiting admin approval', 
+            bookedFrom: '', bookedTo: '', photos: [], ownerId: user.id 
+        };
+
+        try {
+            const res = await fetch(`${API_URL}/equipment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(eqData)
+            });
+            
+            if (res.ok) {
+                const addedEq = await res.json();
+                setEquipmentData([...equipmentData, addedEq]);
+                setShowAddForm(false);
+                addToast(`${addedEq.name} listed! Awaiting admin approval.`, 'success');
+                setNewEquip({ name: '', type: 'Tractor', brand: '', yearOfMfg: 2022, condition: 'Good', engineHours: 0, fuelType: 'Diesel', hp: 0, pricePerDay: '', pricePerHour: '', location: 'Pune', deliveryAvailable: true, attachments: [] });
+            } else {
+                addToast('Failed to save equipment to database', 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            addToast('Server error while saving equipment', 'error');
+        }
     };
     const submitClaim = () => {
         if (!claimForm.equipment || !claimForm.description) { addToast('Please fill all claim fields', 'error'); return; }
