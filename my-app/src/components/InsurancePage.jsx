@@ -2,8 +2,26 @@ import { useState } from 'react';
 import { C, inputS, labelS } from '../styles';
 import { TrustScoreBadge } from './Utilities';
 
-const InsurancePage = ({ user, addToast }) => {
+const InsurancePage = ({ user, addToast, insuranceApps, setInsuranceApps }) => {
     const [calc, setCalc] = useState({ plan: 'Basic', landSize: user?.landSize || 5, frequency: 'Low', equipType: 'Tractor', damageHistory: 0 });
+    const userApp = (insuranceApps || []).find(a => a.userId === user?.id);
+
+    const applyForInsurance = () => {
+        if (!user) { addToast('Please login first', 'error'); return; }
+        const newApp = { id: Date.now(), userId: user.id, userName: user.name, plan: calc.plan, premium: estimatedPremium, landSize: calc.landSize, frequency: calc.frequency, status: 'Pending', date: new Date().toISOString().split('T')[0] };
+        setInsuranceApps([...(insuranceApps || []), newApp]);
+        addToast('Insurance application submitted successfully!', 'success');
+    };
+
+    const handlePay = () => {
+        setInsuranceApps(insuranceApps.map(a => a.id === userApp.id ? { ...a, status: 'Subscribed' } : a));
+        addToast('Successfully subscribed to Insurance!', 'success');
+    };
+
+    const upgradePlan = () => {
+        setInsuranceApps(insuranceApps.map(a => a.id === userApp.id ? { ...a, plan: calc.plan, premium: estimatedPremium, landSize: calc.landSize, frequency: calc.frequency, status: 'Pending' } : a));
+        addToast('Upgrade request submitted for approval.', 'success');
+    };
     const plans = [
         { name: 'Basic', monthly: 1000, maxCover: 50000, forLabel: 'Occasional borrowers', color: C.green, icon: '\u{1F33F}' },
         { name: 'Standard', monthly: 3000, maxCover: 200000, forLabel: 'Regular borrowers', color: C.blue, icon: '\u{1F6E1}\uFE0F' },
@@ -72,6 +90,31 @@ const InsurancePage = ({ user, addToast }) => {
                     <div><p style={{ color: 'rgba(255,255,255,.8)', fontSize: 14 }}>Estimated Monthly Premium</p><p style={{ color: C.white, fontSize: 12, marginTop: 2 }}>Coverage up to {'\u20B9'}{basePlan.maxCover.toLocaleString()}</p></div>
                     <p style={{ fontSize: 32, fontWeight: 800, color: C.white }}>{'\u20B9'}{estimatedPremium.toLocaleString()}<span style={{ fontSize: 14, fontWeight: 400 }}>/month</span></p>
                 </div>
+                {user ? (
+                    <div style={{ marginTop: 20, textAlign: 'right' }}>
+                        {!userApp ? (
+                            <button className="btn-pop" onClick={applyForInsurance} style={{ background: C.green, color: C.white, border: 'none', padding: '12px 30px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 15 }}>Apply for Insurance</button>
+                        ) : userApp.status === 'Approved' ? (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16 }}>
+                                <span style={{ color: C.green, fontWeight: 700, fontSize: 16 }}>{'\u2705'} Application Approved!</span>
+                                <button className="btn-pop" onClick={handlePay} style={{ background: C.blue, color: C.white, border: 'none', padding: '12px 30px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 15 }}>Pay {'\u20B9'}{userApp.premium.toLocaleString()} & Subscribe</button>
+                            </div>
+                        ) : userApp.status === 'Subscribed' ? (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16 }}>
+                                <span style={{ color: C.green, fontWeight: 700, fontSize: 16 }}>{'\u2705'} Active: {userApp.plan} Plan</span>
+                                {calc.plan !== userApp.plan && (
+                                    <button className="btn-pop" onClick={upgradePlan} style={{ background: C.gold, color: C.dark, border: 'none', padding: '12px 30px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 15 }}>Upgrade to {calc.plan}</button>
+                                )}
+                            </div>
+                        ) : (
+                            <span style={{ color: C.orange, fontWeight: 700, fontSize: 16 }}>{'\u23F3'} Pending {userApp.plan} Approval</span>
+                        )}
+                    </div>
+                ) : (
+                    <div style={{ marginTop: 20, textAlign: 'right' }}>
+                        <p style={{ color: C.gray, fontSize: 13 }}>Please login to apply for insurance.</p>
+                    </div>
+                )}
             </div>
             {/* Trust Score */}
             {user && (

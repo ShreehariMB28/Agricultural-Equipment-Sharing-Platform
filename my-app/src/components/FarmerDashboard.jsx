@@ -1,14 +1,33 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { C, inputS, labelS, API_URL } from '../styles';
-import { StatusBadge, TrustScoreBadge } from './Utilities';
+import { StatusBadge, TrustScoreBadge, Badge } from './Utilities';
 import { getEquipImage, TYPES, LOCATIONS, ADMIN_STATUSES, CONDITIONS, FUEL_TYPES, ATTACHMENTS } from '../data';
 
-const FarmerDashboard = ({ bookings, setBookings, addToast, equipmentData, setEquipmentData, user, setPage }) => {
+const FarmerDashboard = ({ bookings, setBookings, addToast, equipmentData, setEquipmentData, user, setPage, claims, setClaims }) => {
     const [tab, setTab] = useState('bookings');
     const [showAddForm, setShowAddForm] = useState(false);
-    const [newEquip, setNewEquip] = useState({ name: '', type: 'Tractor', brand: '', yearOfMfg: 2022, condition: 'Good', engineHours: 0, fuelType: 'Diesel', hp: 0, pricePerDay: '', pricePerHour: '', location: 'Pune', deliveryAvailable: true, attachments: [] });
+    const [expandedBookingId, setExpandedBookingId] = useState(null);
+    const [newEquip, setNewEquip] = useState({ name: '', type: 'Tractor', brand: '', yearOfMfg: 2022, condition: 'Good', engineHours: 0, fuelType: 'Diesel', hp: 0, pricePerDay: '', pricePerHour: '', location: 'Pune', deliveryAvailable: true, attachments: [], photos: [], video: null });
+
+    const handleFileChange = (e, field) => {
+        const files = e.target.files;
+        if (!files.length) return;
+        const promises = Array.from(files).map(file => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(file);
+            });
+        });
+        Promise.all(promises).then(base64Files => {
+            setNewEquip(prev => ({ 
+                ...prev, 
+                [field]: field === 'photos' ? [...(prev.photos || []), ...base64Files] : base64Files[0] 
+            }));
+        });
+    };
     const [showClaimForm, setShowClaimForm] = useState(false);
-    const [claimForm, setClaimForm] = useState({ equipment: '', description: '', photos: '' });
+    const [claimForm, setClaimForm] = useState({ equipment: '', description: '', damageType: 'Minor Damage', photos: '' });
 
     const cancelBooking = (id) => { setBookings(bookings.map(b => b.id === id ? { ...b, status: 'Cancelled' } : b)); addToast('Booking cancelled.', 'info'); };
     const addEquipment = async () => {
@@ -26,21 +45,19 @@ const FarmerDashboard = ({ bookings, setBookings, addToast, equipmentData, setEq
         };
 
         try {
-            const res = await fetch(`${API_URL}/equipment`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(eqData)
-            });
+            // Mocking prototype list behavior
+            const addedEq = { id: Date.now(), ...eqData };
             
-            if (res.ok) {
-                const addedEq = await res.json();
-                setEquipmentData([...equipmentData, addedEq]);
-                setShowAddForm(false);
-                addToast(`${addedEq.name} listed! Awaiting admin approval.`, 'success');
-                setNewEquip({ name: '', type: 'Tractor', brand: '', yearOfMfg: 2022, condition: 'Good', engineHours: 0, fuelType: 'Diesel', hp: 0, pricePerDay: '', pricePerHour: '', location: 'Pune', deliveryAvailable: true, attachments: [] });
-            } else {
-                addToast('Failed to save equipment to database', 'error');
+            if (newEquip.photos && newEquip.photos.length > 0) {
+                localStorage.setItem(`photos_${addedEq.id}`, JSON.stringify(newEquip.photos));
             }
+            if (newEquip.video) {
+                localStorage.setItem(`video_${addedEq.id}`, newEquip.video);
+            }
+            setEquipmentData([...equipmentData, addedEq]);
+            setShowAddForm(false);
+            addToast(`${addedEq.name} listed! Awaiting admin approval.`, 'success');
+            setNewEquip({ name: '', type: 'Tractor', brand: '', yearOfMfg: 2022, condition: 'Good', engineHours: 0, fuelType: 'Diesel', hp: 0, pricePerDay: '', pricePerHour: '', location: 'Pune', deliveryAvailable: true, attachments: [], photos: [], video: null });
         } catch (err) {
             console.error(err);
             addToast('Server error while saving equipment', 'error');
@@ -48,7 +65,9 @@ const FarmerDashboard = ({ bookings, setBookings, addToast, equipmentData, setEq
     };
     const submitClaim = () => {
         if (!claimForm.equipment || !claimForm.description) { addToast('Please fill all claim fields', 'error'); return; }
-        addToast('Damage claim filed successfully! Our team will review it.', 'success'); setShowClaimForm(false); setClaimForm({ equipment: '', description: '', photos: '' });
+        const newClaim = { id: Date.now(), claimant: user.name, equipment: claimForm.equipment, type: claimForm.damageType || 'Minor Damage', desc: claimForm.description, status: 'Pending Review', date: new Date().toISOString().split('T')[0], amount: 0, coverAmount: 0 };
+        setClaims([...(claims || []), newClaim]);
+        addToast('Damage claim filed successfully! Our team will review it.', 'success'); setShowClaimForm(false); setClaimForm({ equipment: '', description: '', damageType: 'Minor Damage', photos: '' });
     };
 
     const tabS = (active) => ({ padding: '8px 20px', borderRadius: 10, border: 'none', fontWeight: 600, fontSize: 14, cursor: 'pointer', transition: 'all .2s', background: active ? C.green : C.white, color: active ? C.white : C.gray, boxShadow: active ? '0 2px 8px rgba(45,106,79,.25)' : 'none' });
@@ -91,19 +110,48 @@ const FarmerDashboard = ({ bookings, setBookings, addToast, equipmentData, setEq
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                             <thead><tr style={{ borderBottom: `2px solid ${C.lightGray}` }}>
-                                {['Equipment', 'Location', 'Dates', 'Days', 'Total', 'Status', 'Action'].map(h => <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: C.gray, fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: .5 }}>{h}</th>)}
+                                {['Role', 'Equipment', 'Location', 'Dates', 'Total', 'Status', 'Action'].map(h => <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: C.gray, fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: .5 }}>{h}</th>)}
                             </tr></thead>
-                            <tbody>{bookings.map(b => (
-                                <tr key={b.id} style={{ borderBottom: `1px solid ${C.lightGray}15` }}>
-                                    <td style={{ padding: '12px' }}>{b.equipment}</td>
-                                    <td style={{ padding: '12px', color: C.gray }}>{b.location}</td>
-                                    <td style={{ padding: '12px', fontSize: 13 }}>{b.dates}</td>
-                                    <td style={{ padding: '12px' }}>{b.days}</td>
-                                    <td style={{ padding: '12px', fontWeight: 600, color: C.green }}>{'\u20B9'}{b.total.toLocaleString()}</td>
-                                    <td style={{ padding: '12px' }}><StatusBadge status={b.status} /></td>
-                                    <td style={{ padding: '12px' }}>{['Pending', 'Confirmed'].includes(b.status) && <button onClick={() => cancelBooking(b.id)} style={{ background: C.red + '15', color: C.red, border: 'none', padding: '5px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Cancel</button>}</td>
-                                </tr>
-                            ))}</tbody>
+                            <tbody>{bookings.filter(b => b.farmer === user.name || equipmentData.find(e => e.name === b.equipment)?.ownerId === user.id).map(b => {
+                                const isBorrower = b.farmer === user.name;
+                                const isExpanded = expandedBookingId === b.id;
+                                return (
+                                <React.Fragment key={b.id}>
+                                    <tr onClick={() => setExpandedBookingId(isExpanded ? null : b.id)} style={{ borderBottom: isExpanded ? 'none' : `1px solid ${C.lightGray}15`, cursor: 'pointer', background: isExpanded ? C.cream : 'transparent' }}>
+                                        <td style={{ padding: '12px' }}><Badge text={isBorrower ? 'Borrowed' : 'Lent'} color={isBorrower ? C.blue : C.purple} /></td>
+                                        <td style={{ padding: '12px', fontWeight: 600 }}>{b.equipment} {isExpanded ? ' \u25B2' : ' \u25BC'}</td>
+                                        <td style={{ padding: '12px', color: C.gray }}>{b.location}</td>
+                                        <td style={{ padding: '12px', fontSize: 13 }}>{b.dates}</td>
+                                        <td style={{ padding: '12px', fontWeight: 600, color: C.green }}>{'\u20B9'}{b.total.toLocaleString()}</td>
+                                        <td style={{ padding: '12px' }}><StatusBadge status={b.status} /></td>
+                                        <td style={{ padding: '12px' }}>{['Pending', 'Confirmed'].includes(b.status) && isBorrower && <button onClick={(e) => { e.stopPropagation(); cancelBooking(b.id); }} style={{ background: C.red + '15', color: C.red, border: 'none', padding: '5px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Cancel</button>}</td>
+                                    </tr>
+                                    {isExpanded && (
+                                        <tr style={{ borderBottom: `1px solid ${C.lightGray}15`, background: C.cream }}>
+                                            <td colSpan="7" style={{ padding: '0 12px 16px 12px' }}>
+                                                <div style={{ background: C.white, borderRadius: 10, padding: 16, display: 'flex', gap: 24, fontSize: 13 }}>
+                                                    <div>
+                                                        <p style={{ color: C.gray, marginBottom: 4 }}>Borrower Details:</p>
+                                                        <p style={{ fontWeight: 600 }}>{b.farmer}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p style={{ color: C.gray, marginBottom: 4 }}>Duration:</p>
+                                                        <p style={{ fontWeight: 600 }}>{b.days} Days</p>
+                                                    </div>
+                                                    <div>
+                                                        <p style={{ color: C.gray, marginBottom: 4 }}>Total Payment:</p>
+                                                        <p style={{ fontWeight: 600, color: C.greenDark }}>{'\u20B9'}{b.total.toLocaleString()}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p style={{ color: C.gray, marginBottom: 4 }}>Order ID:</p>
+                                                        <p style={{ fontFamily: 'monospace' }}>#{b.id || Date.now()}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
+                            )})}</tbody>
                         </table>
                     </div>
                 </div>
@@ -125,8 +173,8 @@ const FarmerDashboard = ({ bookings, setBookings, addToast, equipmentData, setEq
                             <div><label style={labelS}>Engine Hours</label><input type="number" value={newEquip.engineHours} onChange={e => setNewEquip({ ...newEquip, engineHours: Number(e.target.value) })} style={inputS} /></div>
                             <div><label style={labelS}>Fuel Type</label><select value={newEquip.fuelType} onChange={e => setNewEquip({ ...newEquip, fuelType: e.target.value })} style={inputS}>{FUEL_TYPES.map(f => <option key={f}>{f}</option>)}</select></div>
                             <div><label style={labelS}>Horsepower (HP)</label><input type="number" value={newEquip.hp} onChange={e => setNewEquip({ ...newEquip, hp: e.target.value })} style={inputS} /></div>
-                            <div><label style={labelS}>Price/Day (\u20B9) *</label><input type="number" value={newEquip.pricePerDay} onChange={e => setNewEquip({ ...newEquip, pricePerDay: e.target.value })} style={inputS} /></div>
-                            <div><label style={labelS}>Price/Hour (\u20B9)</label><input type="number" value={newEquip.pricePerHour} onChange={e => setNewEquip({ ...newEquip, pricePerHour: e.target.value })} style={inputS} /></div>
+                            <div><label style={labelS}>Price/Day (₹) *</label><input type="number" value={newEquip.pricePerDay} onChange={e => setNewEquip({ ...newEquip, pricePerDay: e.target.value })} style={inputS} /></div>
+                            <div><label style={labelS}>Price/Hour (₹)</label><input type="number" value={newEquip.pricePerHour} onChange={e => setNewEquip({ ...newEquip, pricePerHour: e.target.value })} style={inputS} /></div>
                             <div><label style={labelS}>Location</label><select value={newEquip.location} onChange={e => setNewEquip({ ...newEquip, location: e.target.value })} style={inputS}>{LOCATIONS.slice(1).map(l => <option key={l}>{l}</option>)}</select></div>
                             <div><label style={labelS}>Delivery Available</label><select value={newEquip.deliveryAvailable} onChange={e => setNewEquip({ ...newEquip, deliveryAvailable: e.target.value === 'true' })} style={inputS}><option value="true">Yes</option><option value="false">No</option></select></div>
                             <div style={{ gridColumn: '1/-1' }}><label style={labelS}>Attachments</label>
@@ -136,8 +184,8 @@ const FarmerDashboard = ({ bookings, setBookings, addToast, equipmentData, setEq
                                     </label>
                                 ))}</div>
                             </div>
-                            <div style={{ gridColumn: '1/-1' }}><label style={labelS}>Photos (min 3 — front, side, engine)</label><input type="file" multiple accept="image/*" style={inputS} /><p style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>Upload at least 3 photos. All media will be timestamped.</p></div>
-                            <div style={{ gridColumn: '1/-1' }}><label style={labelS}>Pre-rental Video</label><input type="file" accept="video/*" style={inputS} /><p style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>Upload a short video showing equipment condition (stored as evidence).</p></div>
+                            <div style={{ gridColumn: '1/-1' }}><label style={labelS}>Photos (min 3 — front, side, engine)</label><input type="file" multiple accept="image/*" onChange={e => handleFileChange(e, 'photos')} style={inputS} /><p style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>Upload at least 3 photos. All media will be timestamped.</p></div>
+                            <div style={{ gridColumn: '1/-1' }}><label style={labelS}>Pre-rental Video</label><input type="file" accept="video/*" onChange={e => handleFileChange(e, 'video')} style={inputS} /><p style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>Upload a short video showing equipment condition (stored as evidence).</p></div>
                             <div style={{ gridColumn: '1/-1', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                                 <button onClick={() => setShowAddForm(false)} style={{ background: C.lightGray, color: C.gray, border: 'none', padding: '9px 20px', borderRadius: 10, cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
                                 <button className="btn-pop" onClick={addEquipment} style={{ background: C.green, color: C.white, border: 'none', padding: '9px 24px', borderRadius: 10, cursor: 'pointer', fontWeight: 600 }}>List Equipment</button>
@@ -145,7 +193,7 @@ const FarmerDashboard = ({ bookings, setBookings, addToast, equipmentData, setEq
                         </div>
                     )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        {equipmentData.map(eq => (
+                        {equipmentData.filter(eq => eq.ownerId === user.id).map(eq => (
                             <div key={eq.id} style={{ border: `1.5px solid ${C.lightGray}`, borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                                 <img src={getEquipImage(eq.type, eq.name)} alt={eq.name} style={{ width: 80, height: 56, objectFit: 'cover', borderRadius: 8 }} />
                                 <div style={{ flex: 1, minWidth: 150 }}>
@@ -197,15 +245,49 @@ const FarmerDashboard = ({ bookings, setBookings, addToast, equipmentData, setEq
                 <div style={{ background: C.white, borderRadius: 14, padding: 22, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
                     <h3 style={{ color: C.greenDark, marginBottom: 16 }}>{'\u{1F4CB}'} File a Damage Claim</h3>
                     {!showClaimForm ? (
-                        <div style={{ textAlign: 'center', padding: 40 }}>
-                            <span style={{ fontSize: 48, display: 'block', marginBottom: 12 }}>{'\u{1F4E4}'}</span>
-                            <p style={{ color: C.gray, marginBottom: 16 }}>Report equipment damage and file an insurance claim</p>
-                            <button className="btn-pop" onClick={() => setShowClaimForm(true)} style={{ background: C.green, color: C.white, border: 'none', padding: '12px 28px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>File New Claim</button>
+                        <div>
+                            <div style={{ textAlign: 'center', padding: 40 }}>
+                                <span style={{ fontSize: 48, display: 'block', marginBottom: 12 }}>{'\u{1F4E4}'}</span>
+                                <p style={{ color: C.gray, marginBottom: 16 }}>Report equipment damage and file an insurance claim</p>
+                                <button className="btn-pop" onClick={() => setShowClaimForm(true)} style={{ background: C.green, color: C.white, border: 'none', padding: '12px 28px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>File New Claim</button>
+                            </div>
+                            {(claims || []).filter(c => c.claimant === user.name).length > 0 && (
+                                <div style={{ marginTop: 30 }}>
+                                    <h4 style={{ color: C.greenDark, marginBottom: 12 }}>My Claims</h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        {claims.filter(c => c.claimant === user.name).map(c => (
+                                            <div key={c.id} style={{ background: C.cream, borderRadius: 12, padding: 16 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <h5 style={{ fontSize: 15, color: C.greenDark }}>{c.equipment} - {c.type}</h5>
+                                                    <StatusBadge status={c.status} />
+                                                </div>
+                                                <p style={{ fontSize: 12, color: C.gray, marginTop: 4 }}>Date: {c.date} • {c.desc}</p>
+                                                {(c.status === 'Assessed' || c.status === 'Approved') && (
+                                                    <div style={{ marginTop: 12, background: C.white, borderRadius: 8, padding: 12 }}>
+                                                        <p style={{ fontSize: 12, color: C.gray }}>Estimated Inspection Time: {c.inspectionTime || 'N/A'}</p>
+                                                        <p style={{ fontSize: 12, color: C.gray }}>Covered by Insurance: {c.coverAmount > 0 ? 'Yes' : 'No'}</p>
+                                                        <p style={{ fontSize: 13, color: C.red, fontWeight: 600, marginTop: 4 }}>Total Damage: ₹{c.amount?.toLocaleString() || 0}</p>
+                                                        <p style={{ fontSize: 13, color: C.green, fontWeight: 600 }}>Estimated Coverage: ₹{c.coverAmount?.toLocaleString() || 0}</p>
+                                                        
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, flexWrap: 'wrap', gap: 10 }}>
+                                                            <span style={{ fontSize: 15, fontWeight: 700, color: C.dark }}>Rest Money to Pay: ₹{Math.max(0, c.amount - c.coverAmount).toLocaleString()}</span>
+                                                            <button className="btn-pop" onClick={() => { setClaims(claims.map(x => x.id === c.id ? { ...x, status: 'Settled' } : x)); addToast('Payment successful, claim settled!', 'success'); }} style={{ background: C.blue, color: C.white, border: 'none', padding: '8px 20px', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}>Pay ₹{Math.max(0, c.amount - c.coverAmount).toLocaleString()}</button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {c.status === 'Settled' && (
+                                                    <div style={{ marginTop: 8 }}><span style={{ color: C.green, fontWeight: 700, fontSize: 13 }}>✅ Claim settled & paid</span></div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }} className="resp-grid">
-                            <div><label style={labelS}>Equipment *</label><select value={claimForm.equipment} onChange={e => setClaimForm({ ...claimForm, equipment: e.target.value })} style={inputS}><option value="">Select equipment</option>{equipmentData.map(eq => <option key={eq.id} value={eq.name}>{eq.name}</option>)}</select></div>
-                            <div><label style={labelS}>Damage Type</label><select style={inputS}><option>Minor Damage</option><option>Major Damage</option><option>Total Loss</option></select></div>
+                            <div><label style={labelS}>Equipment *</label><select value={claimForm.equipment} onChange={e => setClaimForm({ ...claimForm, equipment: e.target.value })} style={inputS}><option value="">Select equipment</option>{[...new Set(bookings.filter(b => b.farmer === user.name && ['Confirmed', 'In Use', 'Completed'].includes(b.status)).map(b => b.equipment))].map(eq => <option key={eq} value={eq}>{eq}</option>)}</select></div>
+                            <div><label style={labelS}>Damage Type</label><select value={claimForm.damageType} onChange={e => setClaimForm({ ...claimForm, damageType: e.target.value })} style={inputS}><option value="Minor Damage">Minor (scratches, small dents)</option><option value="Major Damage">Major (broken parts, engine trouble)</option><option value="Total Loss">Total Loss (unrepairable)</option></select></div>
                             <div style={{ gridColumn: '1/-1' }}><label style={labelS}>Description *</label><textarea value={claimForm.description} onChange={e => setClaimForm({ ...claimForm, description: e.target.value })} rows={3} placeholder="Describe the damage in detail..." style={{ ...inputS, resize: 'vertical' }} /></div>
                             <div style={{ gridColumn: '1/-1' }}><label style={labelS}>Upload Photos (evidence)</label><input type="file" multiple accept="image/*" style={inputS} /><p style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>Upload timestamped photos of damage</p></div>
                             <div style={{ gridColumn: '1/-1', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>

@@ -52,13 +52,14 @@ const EquipmentModal = ({ eq, onClose, onBook, user }) => {
     );
 };
 
-const EquipmentPage = ({ setPage, setSelectedEquip, addToast, equipmentData, user }) => {
+const EquipmentPage = ({ setPage, setSelectedEquip, addToast, equipmentData, user, bookings }) => {
     const [search, setSearch] = useState('');
     const [typeF, setTypeF] = useState('All Types');
     const [locF, setLocF] = useState('All Locations');
     const [priceF, setPriceF] = useState(5000);
     const [modalEq, setModalEq] = useState(null);
     const filtered = equipmentData.filter(e => {
+        if (e.adminStatus === 'Inspection Pending') return false; // Hide completely if not yet approved
         if (search && !e.name.toLowerCase().includes(search.toLowerCase())) return false;
         if (typeF !== 'All Types' && e.type !== typeF) return false;
         if (locF !== 'All Locations' && e.location !== locF) return false;
@@ -85,9 +86,12 @@ const EquipmentPage = ({ setPage, setSelectedEquip, addToast, equipmentData, use
             <div className="resp-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 22 }}>
                 {filtered.map((eq, i) => {
                     const age = new Date().getFullYear() - (eq.yearOfMfg || 2020);
+                    const isActiveBooking = bookings?.some(b => b.equipment === eq.name && ['Pending', 'Confirmed', 'In Use'].includes(b.status));
+                    const currentlyAvailable = eq.available !== false && !isActiveBooking;
+
                     return (
-                        <div key={eq.id} className="card-hover" onClick={() => setModalEq(eq)} style={{ background: C.white, borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 14px rgba(0,0,0,.06)', transition: 'all .3s', animation: `fadeIn .4s ease ${i * .07}s both`, cursor: 'pointer' }}>
-                            <img src={getEquipImage(eq.type, eq.name)} alt={eq.name} style={{ width: '100%', height: 180, objectFit: 'cover' }} />
+                        <div key={eq.id} className="card-hover" onClick={() => setModalEq({ ...eq, available: currentlyAvailable })} style={{ background: C.white, borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 14px rgba(0,0,0,.06)', transition: 'all .3s', animation: `fadeIn .4s ease ${i * .07}s both`, cursor: 'pointer' }}>
+                            <img src={getEquipImage(eq.type, eq.name)} alt={eq.name} style={{ width: '100%', height: 180, objectFit: 'cover', filter: currentlyAvailable ? 'none' : 'grayscale(100%)', opacity: currentlyAvailable ? 1 : 0.8 }} />
                             <div style={{ padding: '16px 20px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                                     <h4 style={{ color: C.greenDark, fontSize: 15 }}>{eq.name}</h4>
@@ -102,12 +106,12 @@ const EquipmentPage = ({ setPage, setSelectedEquip, addToast, equipmentData, use
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, marginBottom: 6 }}>
                                     <span style={{ fontSize: 13, color: C.gray }}>{'\u{1F4CD}'} {eq.location}</span>
-                                    {eq.available ? <Badge text="Available" color={C.green} /> : <Badge text="Booked" color={C.red} />}
+                                    {currentlyAvailable ? <Badge text="Available" color={C.green} /> : <Badge text="Borrowed/Booked" color={C.red} />}
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
                                     <span style={{ fontSize: 20, fontWeight: 800, color: C.green }}>{'\u20B9'}{(eq.pricePerDay || eq.price || 0).toLocaleString()}<span style={{ fontSize: 12, fontWeight: 400, color: C.gray }}>/day</span></span>
-                                    <button className="btn-pop" onClick={e => { e.stopPropagation(); handleBook(eq) }} disabled={!eq.available} style={{ background: eq.available ? C.green : C.lightGray, color: eq.available ? C.white : C.gray, border: 'none', padding: '8px 18px', borderRadius: 10, fontWeight: 700, fontSize: 12, cursor: eq.available ? 'pointer' : 'not-allowed', transition: 'all .2s' }}>
-                                        {eq.available ? 'Book Now \u2192' : 'Unavailable'}
+                                    <button className="btn-pop" onClick={e => { e.stopPropagation(); if (currentlyAvailable) handleBook({...eq, available: currentlyAvailable}) }} disabled={!currentlyAvailable} style={{ background: currentlyAvailable ? C.green : C.lightGray, color: currentlyAvailable ? C.white : C.gray, border: 'none', padding: '8px 18px', borderRadius: 10, fontWeight: 700, fontSize: 12, cursor: currentlyAvailable ? 'pointer' : 'not-allowed', transition: 'all .2s' }}>
+                                        {currentlyAvailable ? 'Book Now \u2192' : 'Borrowed / In Use'}
                                     </button>
                                 </div>
                             </div>

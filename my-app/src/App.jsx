@@ -22,6 +22,22 @@ export default function App() {
     const [bookings, setBookings] = useState(initBookings);
     const [equipmentData, setEquipmentData] = useState(EQUIPMENT);
     const [toasts, setToasts] = useState([]);
+    const [insuranceApps, setInsuranceApps] = useState(() => {
+        const saved = localStorage.getItem('insuranceApps');
+        return saved ? JSON.parse(saved) : [];
+    });
+    const [claims, setClaims] = useState(() => {
+        const saved = localStorage.getItem('claims');
+        return saved ? JSON.parse(saved) : [];
+    });
+
+    useEffect(() => {
+        localStorage.setItem('insuranceApps', JSON.stringify(insuranceApps));
+    }, [insuranceApps]);
+
+    useEffect(() => {
+        localStorage.setItem('claims', JSON.stringify(claims));
+    }, [claims]);
 
     const addToast = (msg, type = 'success') => {
         const id = Date.now();
@@ -48,11 +64,11 @@ export default function App() {
             <Toast toasts={toasts} removeToast={removeToast} />
             <Navbar page={page} setPage={setPage} user={user} setUser={setUser} />
             {page === 'Home' && <HomePage setPage={setPage} addToast={addToast} />}
-            {page === 'Equipment' && <EquipmentPage setPage={setPage} setSelectedEquip={setSelectedEquip} addToast={addToast} equipmentData={equipmentData} user={user} />}
+            {page === 'Equipment' && <EquipmentPage setPage={setPage} setSelectedEquip={setSelectedEquip} addToast={addToast} equipmentData={equipmentData} user={user} bookings={bookings} />}
             {page === 'Booking' && <BookingPage selectedEquip={selectedEquip} setPage={setPage} addToast={addToast} bookings={bookings} setBookings={setBookings} user={user} />}
-            {page === 'Insurance' && <InsurancePage user={user} addToast={addToast} />}
-            {page === 'Dashboard' && <FarmerDashboard bookings={bookings} setBookings={setBookings} addToast={addToast} equipmentData={equipmentData} setEquipmentData={setEquipmentData} user={user} setPage={setPage} />}
-            {page === 'Admin Dashboard' && <AdminDashboard bookings={bookings} setBookings={setBookings} addToast={addToast} equipmentData={equipmentData} setEquipmentData={setEquipmentData} user={user} />}
+            {page === 'Insurance' && <InsurancePage user={user} addToast={addToast} insuranceApps={insuranceApps} setInsuranceApps={setInsuranceApps} />}
+            {page === 'Dashboard' && <FarmerDashboard bookings={bookings} setBookings={setBookings} addToast={addToast} equipmentData={equipmentData} setEquipmentData={setEquipmentData} user={user} setPage={setPage} claims={claims} setClaims={setClaims} />}
+            {page === 'Admin Dashboard' && <AdminDashboard bookings={bookings} setBookings={setBookings} addToast={addToast} equipmentData={equipmentData} setEquipmentData={setEquipmentData} user={user} insuranceApps={insuranceApps} setInsuranceApps={setInsuranceApps} claims={claims} setClaims={setClaims} />}
             {page === 'Login' && <LoginPage setPage={setPage} setUser={setUser} addToast={addToast} />}
             {page === 'AdminLogin' && <AdminLoginPage setPage={setPage} setUser={setUser} addToast={addToast} />}
         </div>

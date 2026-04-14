@@ -3,7 +3,7 @@ import { C, inputS, labelS, API_URL } from '../styles';
 import { StatusBadge, Badge, TrustScoreBadge } from './Utilities';
 import { getEquipImage, ADMIN_STATUSES, SAMPLE_USERS, SAMPLE_CLAIMS } from '../data';
 
-const AdminDashboard = ({ bookings, setBookings, addToast, equipmentData, setEquipmentData, user }) => {
+const AdminDashboard = ({ bookings, setBookings, addToast, equipmentData, setEquipmentData, user, insuranceApps, setInsuranceApps, claims, setClaims }) => {
     const [tab, setTab] = useState('users');
     const [statusFilter, setStatusFilter] = useState('All');
     const [editingStatus, setEditingStatus] = useState(null);
@@ -11,6 +11,24 @@ const AdminDashboard = ({ bookings, setBookings, addToast, equipmentData, setEqu
     const [newStatus, setNewStatus] = useState('');
     const [users, setUsers] = useState(SAMPLE_USERS);
     const [expandedUser, setExpandedUser] = useState(null);
+    const [assessingClaimId, setAssessingClaimId] = useState(null);
+    const [assessmentData, setAssessmentData] = useState({ amount: 0, coverAmount: 0, inspectionTime: '2 Days' });
+
+    const assessClaim = (claimId) => {
+        setClaims((claims || []).map(c => c.id === claimId ? { ...c, status: 'Assessed', amount: assessmentData.amount, coverAmount: assessmentData.coverAmount, inspectionTime: assessmentData.inspectionTime } : c));
+        setAssessingClaimId(null);
+        addToast('Claim successfully assessed!', 'success');
+    };
+
+    const updateBookingStatus = (id, newStatus) => {
+        setBookings(bookings.map(b => b.id === id ? { ...b, status: newStatus } : b));
+        addToast(`Booking status changed to ${newStatus}`, 'success');
+    };
+
+    const approveApp = (appId) => {
+        setInsuranceApps((insuranceApps || []).map(a => a.id === appId ? { ...a, status: 'Approved' } : a));
+        addToast('Insurance application approved', 'success');
+    };
 
     const changeAdminStatus = async (eqId) => {
         if (!newStatus) return;
@@ -19,19 +37,10 @@ const AdminDashboard = ({ bookings, setBookings, addToast, equipmentData, setEqu
         const updateData = { adminStatus: newStatus, adminNote: statusNote, available: isAvailable };
         
         try {
-            const res = await fetch(`${API_URL}/equipment/${eqId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updateData)
-            });
-            
-            if (res.ok) {
-                setEquipmentData(equipmentData.map(e => e.id === eqId ? { ...e, ...updateData } : e));
-                addToast(`Status updated to "${newStatus}"`, 'success');
-                setEditingStatus(null); setStatusNote(''); setNewStatus('');
-            } else {
-                addToast('Failed to update equipment status in database', 'error');
-            }
+            // Mocking prototype update behavior
+            setEquipmentData(equipmentData.map(e => e.id === eqId ? { ...e, ...updateData } : e));
+            addToast(`Status updated to "${newStatus}"`, 'success');
+            setEditingStatus(null); setStatusNote(''); setNewStatus('');
         } catch (err) {
             console.error(err);
             addToast('Server error during status update', 'error');
@@ -71,7 +80,7 @@ const AdminDashboard = ({ bookings, setBookings, addToast, equipmentData, setEqu
             </div>
             {/* Tabs */}
             <div style={{ display: 'flex', gap: 6, marginBottom: 24, background: C.white, padding: 4, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,.05)', flexWrap: 'wrap' }}>
-                {[['users', 'All Users'], ['equipment', 'Equipment'], ['claims', 'Insurance Claims'], ['bookings', 'Bookings']].map(([key, label]) => (
+                {[['users', 'All Users'], ['equipment', 'Equipment'], ['claims', 'Insurance Claims'], ['apps', 'Insurance Apps'], ['bookings', 'Bookings']].map(([key, label]) => (
                     <button key={key} style={tabS(tab === key)} onClick={() => setTab(key)}>{label}</button>
                 ))}
             </div>
@@ -155,20 +164,73 @@ const AdminDashboard = ({ bookings, setBookings, addToast, equipmentData, setEqu
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                             <thead><tr style={{ borderBottom: `2px solid ${C.lightGray}` }}>
-                                {['ID', 'Claimant', 'Equipment', 'Date', 'Type', 'Amount', 'Photos', 'Status'].map(h => <th key={h} style={{ textAlign: 'left', padding: '10px 8px', color: C.gray, fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>{h}</th>)}
+                                {['ID', 'Claimant', 'Equipment', 'Date', 'Type', 'Amount', 'Covered', 'Status', 'Action'].map(h => <th key={h} style={{ textAlign: 'left', padding: '10px 8px', color: C.gray, fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>{h}</th>)}
                             </tr></thead>
-                            <tbody>{SAMPLE_CLAIMS.map(c => (
+                            <tbody>{(claims || []).map(c => (
                                 <tr key={c.id} style={{ borderBottom: `1px solid ${C.lightGray}15` }}>
-                                    <td style={{ padding: '10px 8px', fontWeight: 600 }}>#{c.id}</td>
+                                    <td style={{ padding: '10px 8px', fontWeight: 600 }}>#{String(c.id).slice(-4)}</td>
                                     <td style={{ padding: '10px 8px' }}>{c.claimant}</td>
                                     <td style={{ padding: '10px 8px', color: C.gray }}>{c.equipment}</td>
                                     <td style={{ padding: '10px 8px', fontSize: 12 }}>{c.date}</td>
-                                    <td style={{ padding: '10px 8px' }}><Badge text={c.type} color={c.type.includes('Major') ? C.red : C.orange} /></td>
-                                    <td style={{ padding: '10px 8px', fontWeight: 600, color: C.green }}>{'\u20B9'}{c.amount.toLocaleString()}</td>
-                                    <td style={{ padding: '10px 8px' }}>{c.photos} files</td>
+                                    <td style={{ padding: '10px 8px' }}><Badge text={c.type} color={c.type.includes('Total Loss') ? C.red : C.orange} /></td>
+                                    <td style={{ padding: '10px 8px', fontWeight: 600 }}>{'\u20B9'}{c.amount?.toLocaleString() || 0}</td>
+                                    <td style={{ padding: '10px 8px', fontWeight: 600, color: C.green }}>{'\u20B9'}{c.coverAmount?.toLocaleString() || 0}</td>
                                     <td style={{ padding: '10px 8px' }}><StatusBadge status={c.status} /></td>
+                                    <td style={{ padding: '10px 8px' }}>
+                                        {c.status === 'Pending Review' && assessingClaimId !== c.id && (
+                                            <button onClick={() => { setAssessingClaimId(c.id); setAssessmentData({ amount: 0, coverAmount: 0, inspectionTime: '2 Days' }); }} style={{ background: C.orange + '15', color: C.orange, border: 'none', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>Assess</button>
+                                        )}
+                                        {assessingClaimId === c.id && (
+                                            <div style={{ marginTop: 8, background: C.cream, borderRadius: 8, padding: 10, display: 'flex', flexDirection: 'column', gap: 6, minWidth: 200 }}>
+                                                <div><label style={{...labelS, fontSize: 10}}>Damage ₹</label><input type="number" onChange={e => setAssessmentData({...assessmentData, amount: Number(e.target.value)})} style={{...inputS, padding: 4}} /></div>
+                                                <div><label style={{...labelS, fontSize: 10}}>Cover ₹</label><input type="number" onChange={e => setAssessmentData({...assessmentData, coverAmount: Number(e.target.value)})} style={{...inputS, padding: 4}} /></div>
+                                                <div><label style={{...labelS, fontSize: 10}}>Time</label><input onChange={e => setAssessmentData({...assessmentData, inspectionTime: e.target.value})} placeholder="e.g. 2 Days" style={{...inputS, padding: 4}} defaultValue="2 Days" /></div>
+                                                <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                                                    <button onClick={() => assessClaim(c.id)} style={{ flex: 1, background: C.green, color: C.white, border: 'none', padding: '4px', borderRadius: 4, cursor: 'pointer', fontSize: 10 }}>Submit</button>
+                                                    <button onClick={() => setAssessingClaimId(null)} style={{ flex: 1, background: C.lightGray, color: C.gray, border: 'none', padding: '4px', borderRadius: 4, cursor: 'pointer', fontSize: 10 }}>Cancel</button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </td>
                                 </tr>
-                            ))}</tbody>
+                            ))}
+                            {(!claims || claims.length === 0) && (
+                                <tr><td colSpan="9" style={{ padding: '20px', textAlign: 'center', color: C.gray }}>No claims filed yet.</td></tr>
+                            )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+            {/* Insurance Apps Tab */}
+            {tab === 'apps' && (
+                <div style={{ background: C.white, borderRadius: 14, padding: 22, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                    <h3 style={{ color: C.greenDark, marginBottom: 16 }}>Insurance Applications</h3>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                            <thead><tr style={{ borderBottom: `2px solid ${C.lightGray}` }}>
+                                {['Date', 'Farmer', 'Plan', 'Premium', 'Land', 'Frequency', 'Status', 'Action'].map(h => <th key={h} style={{ textAlign: 'left', padding: '10px 8px', color: C.gray, fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>{h}</th>)}
+                            </tr></thead>
+                            <tbody>{(insuranceApps || []).map(a => (
+                                <tr key={a.id} style={{ borderBottom: `1px solid ${C.lightGray}15` }}>
+                                    <td style={{ padding: '10px 8px', fontSize: 12 }}>{a.date}</td>
+                                    <td style={{ padding: '10px 8px', fontWeight: 600 }}>{a.userName}</td>
+                                    <td style={{ padding: '10px 8px' }}>{a.plan}</td>
+                                    <td style={{ padding: '10px 8px', color: C.green, fontWeight: 600 }}>{'\u20B9'}{a.premium.toLocaleString()}</td>
+                                    <td style={{ padding: '10px 8px' }}>{a.landSize} acres</td>
+                                    <td style={{ padding: '10px 8px' }}>{a.frequency}</td>
+                                    <td style={{ padding: '10px 8px' }}><Badge text={a.status} color={a.status === 'Approved' ? C.green : C.orange} /></td>
+                                    <td style={{ padding: '10px 8px' }}>
+                                        {a.status === 'Pending' && (
+                                            <button onClick={() => approveApp(a.id)} style={{ background: C.green + '15', color: C.green, border: 'none', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>Approve</button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                            {(!insuranceApps || insuranceApps.length === 0) && (
+                                <tr><td colSpan="8" style={{ padding: '20px', textAlign: 'center', color: C.gray }}>No applications yet</td></tr>
+                            )}
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -187,7 +249,7 @@ const AdminDashboard = ({ bookings, setBookings, addToast, equipmentData, setEqu
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                             <thead><tr style={{ borderBottom: `2px solid ${C.lightGray}` }}>
-                                {['Equipment', 'Farmer', 'Location', 'Dates', 'Total', 'Status'].map(h => <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: C.gray, fontWeight: 600, fontSize: 12, textTransform: 'uppercase' }}>{h}</th>)}
+                                {['Equipment', 'Farmer', 'Location', 'Dates', 'Total', 'Status', 'Action'].map(h => <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: C.gray, fontWeight: 600, fontSize: 12, textTransform: 'uppercase' }}>{h}</th>)}
                             </tr></thead>
                             <tbody>{filteredBookings.map(b => (
                                 <tr key={b.id} style={{ borderBottom: `1px solid ${C.lightGray}15` }}>
@@ -197,6 +259,11 @@ const AdminDashboard = ({ bookings, setBookings, addToast, equipmentData, setEqu
                                     <td style={{ padding: '12px', fontSize: 13 }}>{b.dates}</td>
                                     <td style={{ padding: '12px', fontWeight: 600, color: C.green }}>{'\u20B9'}{b.total.toLocaleString()}</td>
                                     <td style={{ padding: '12px' }}><StatusBadge status={b.status} /></td>
+                                    <td style={{ padding: '12px' }}>
+                                        <select value={b.status} onChange={e => updateBookingStatus(b.id, e.target.value)} style={{ padding: '4px 8px', borderRadius: 6, border: `1px solid ${C.lightGray}`, fontSize: 12, background: C.cream }}>
+                                            {['Pending', 'Confirmed', 'In Use', 'Completed', 'Cancelled'].map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    </td>
                                 </tr>
                             ))}</tbody>
                         </table>
