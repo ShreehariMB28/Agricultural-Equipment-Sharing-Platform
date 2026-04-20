@@ -1,7 +1,7 @@
 import { C } from './styles';
 
 /* ── IMAGE MAP ── */
-const BASE = '/Agricultural-Equipment-Sharing-Platform';
+const BASE = '';
 export const EQUIP_NAME_IMAGES = {
     'Mahindra Tractor 575 DI': `${BASE}/mahindra-tractor.webp`,
     'John Deere 5310': `${BASE}/john-deere.jpg`,
