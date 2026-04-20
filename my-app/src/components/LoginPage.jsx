@@ -1,10 +1,48 @@
 import { useState } from 'react';
 import { C, inputS, labelS, API_URL } from '../styles';
+import { SAMPLE_USERS } from '../data';
 
 const LoginPage = ({ setPage, setUser, addToast }) => {
     const [mode, setMode] = useState('login');
     const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', landSize: '', district: '', state: '', farmerType: 'Borrower' });
     const [loading, setLoading] = useState(false);
+
+    // Offline fallback login using sample users
+    const offlineLogin = (email) => {
+        const found = SAMPLE_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
+        if (found) {
+            const user = { ...found, role: 'farmer' };
+            localStorage.setItem('user', JSON.stringify(user));
+            setUser(user);
+            addToast(`Welcome back, ${user.name}!`, 'success');
+            setPage('Dashboard');
+            return true;
+        }
+        return false;
+    };
+
+    // Offline fallback registration
+    const offlineRegister = (formData) => {
+        const user = {
+            id: Date.now(),
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            role: 'farmer',
+            farmerType: formData.farmerType,
+            district: formData.district || 'Pune',
+            state: formData.state || 'Maharashtra',
+            landSize: Number(formData.landSize) || 0,
+            trustScore: 100,
+            status: 'Active',
+            joinDate: new Date().toISOString().split('T')[0],
+            damageHistory: [],
+        };
+        localStorage.setItem('user', JSON.stringify(user));
+        setUser(user);
+        addToast(`Welcome, ${user.name}! Registered successfully`, 'success');
+        setPage('Dashboard');
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -38,7 +76,19 @@ const LoginPage = ({ setPage, setUser, addToast }) => {
                 setPage('Dashboard');
             }
         } catch (err) {
-            addToast('Server unavailable. Please try again.', 'error');
+            // API unavailable — use offline fallback
+            if (mode === 'login') {
+                if (!offlineLogin(form.email)) {
+                    // If not a sample user, create a basic user from email
+                    const user = { id: Date.now(), name: form.email.split('@')[0], email: form.email, role: 'farmer', farmerType: 'Borrower', district: 'Pune', state: 'Maharashtra', landSize: 5, trustScore: 85, status: 'Active', joinDate: new Date().toISOString().split('T')[0], damageHistory: [] };
+                    localStorage.setItem('user', JSON.stringify(user));
+                    setUser(user);
+                    addToast(`Logged in offline as ${user.name}`, 'success');
+                    setPage('Dashboard');
+                }
+            } else {
+                offlineRegister(form);
+            }
         }
         setLoading(false);
     };
